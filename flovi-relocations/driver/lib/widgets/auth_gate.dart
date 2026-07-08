@@ -1,12 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
-import '../screens/browse_gigs_screen.dart';
 import '../screens/login_screen.dart';
+import '../screens/main_screen.dart';
 import '../services/auth_service.dart';
 
-/// Shows [LoginScreen] or [BrowseGigsScreen] depending on the current auth
-/// state, reacting to sign-in/sign-out as they happen.
+/// Shows [LoginScreen] or [MainScreen] depending on the current auth state,
+/// reacting to sign-in/sign-out as they happen.
 class AuthGate extends StatelessWidget {
   const AuthGate({super.key});
 
@@ -26,7 +26,7 @@ class AuthGate extends StatelessWidget {
         }
 
         final session = snapshot.data!.session;
-        return session == null ? const LoginScreen() : const BrowseGigsScreen();
+        return session == null ? const LoginScreen() : const MainScreen();
       },
     );
   }

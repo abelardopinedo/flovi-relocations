@@ -1,71 +1,48 @@
 import 'package:flutter/material.dart';
 
 import '../models/relocation_request.dart';
-import '../services/auth_service.dart';
 import '../services/requests_service.dart';
 
-/// Read-only list of open (unbooked) relocation gigs, shown as the driver's
-/// home screen after signing in. Updates live via [RequestsService].
-class BrowseGigsScreen extends StatefulWidget {
-  const BrowseGigsScreen({super.key});
+/// Read-only list of open (unbooked) relocation gigs, with one-tap booking.
+/// Updates live via the shared [RequestsService] passed in from the parent
+/// navigation shell.
+class BrowseGigsScreen extends StatelessWidget {
+  const BrowseGigsScreen({super.key, required this.requestsService});
 
-  @override
-  State<BrowseGigsScreen> createState() => _BrowseGigsScreenState();
-}
-
-class _BrowseGigsScreenState extends State<BrowseGigsScreen> {
-  final _requestsService = RequestsService();
-
-  @override
-  void dispose() {
-    _requestsService.dispose();
-    super.dispose();
-  }
+  final RequestsService requestsService;
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text('Available Gigs'),
-        actions: [
-          IconButton(
-            onPressed: () => AuthService.instance.signOut(),
-            icon: const Icon(Icons.logout),
-            tooltip: 'Sign out',
-          ),
-        ],
-      ),
-      body: ListenableBuilder(
-        listenable: _requestsService,
-        builder: (context, _) {
-          final requests = _requestsService.openRequests;
+    return ListenableBuilder(
+      listenable: requestsService,
+      builder: (context, _) {
+        final requests = requestsService.openRequests;
 
-          if (_requestsService.isLoading && requests.isEmpty) {
-            return const Center(child: CircularProgressIndicator());
-          }
+        if (requestsService.isLoading && requests.isEmpty) {
+          return const Center(child: CircularProgressIndicator());
+        }
 
-          if (_requestsService.error != null && requests.isEmpty) {
-            return _ErrorState(onRetry: _requestsService.fetchOpenRequests);
-          }
+        if (requestsService.error != null && requests.isEmpty) {
+          return _ErrorState(onRetry: requestsService.fetchOpenRequests);
+        }
 
-          if (requests.isEmpty) {
-            return _EmptyState(onRefresh: _requestsService.fetchOpenRequests);
-          }
+        if (requests.isEmpty) {
+          return _EmptyState(onRefresh: requestsService.fetchOpenRequests);
+        }
 
-          return RefreshIndicator(
-            onRefresh: _requestsService.fetchOpenRequests,
-            child: ListView.builder(
-              physics: const AlwaysScrollableScrollPhysics(),
-              padding: const EdgeInsets.all(16),
-              itemCount: requests.length,
-              itemBuilder: (context, index) => _GigCard(
-                request: requests[index],
-                requestsService: _requestsService,
-              ),
+        return RefreshIndicator(
+          onRefresh: requestsService.fetchOpenRequests,
+          child: ListView.builder(
+            physics: const AlwaysScrollableScrollPhysics(),
+            padding: const EdgeInsets.all(16),
+            itemCount: requests.length,
+            itemBuilder: (context, index) => _GigCard(
+              request: requests[index],
+              requestsService: requestsService,
             ),
-          );
-        },
-      ),
+          ),
+        );
+      },
     );
   }
 }
