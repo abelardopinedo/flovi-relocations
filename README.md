@@ -70,5 +70,5 @@ Copy `env/env.example.json` to `env/env.json` and fill in your Supabase project'
 ```
 
 ```bash
-flutter run -d chrome --web-port=5000 --dart-define-from-file=env/env.json
+flutter build web --dart-define-from-file=env/env.json
 ```
