@@ -1,8 +1,11 @@
 import 'package:flutter/material.dart';
 
-import 'screens/home_screen.dart';
+import 'services/supabase_client.dart';
+import 'widgets/auth_gate.dart';
 
-void main() {
+Future<void> main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+  await initSupabase();
   runApp(const DriverApp());
 }
 
@@ -17,7 +20,7 @@ class DriverApp extends StatelessWidget {
         colorScheme: ColorScheme.fromSeed(seedColor: Colors.deepPurple),
         useMaterial3: true,
       ),
-      home: const HomeScreen(),
+      home: const AuthGate(),
     );
   }
 }
