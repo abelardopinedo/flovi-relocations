@@ -58,7 +58,10 @@ class _BrowseGigsScreenState extends State<BrowseGigsScreen> {
               physics: const AlwaysScrollableScrollPhysics(),
               padding: const EdgeInsets.all(16),
               itemCount: requests.length,
-              itemBuilder: (context, index) => _GigCard(request: requests[index]),
+              itemBuilder: (context, index) => _GigCard(
+                request: requests[index],
+                requestsService: _requestsService,
+              ),
             ),
           );
         },
@@ -67,14 +70,76 @@ class _BrowseGigsScreenState extends State<BrowseGigsScreen> {
   }
 }
 
-class _GigCard extends StatelessWidget {
-  const _GigCard({required this.request});
+class _GigCard extends StatefulWidget {
+  const _GigCard({required this.request, required this.requestsService});
 
   final RelocationRequest request;
+  final RequestsService requestsService;
+
+  @override
+  State<_GigCard> createState() => _GigCardState();
+}
+
+class _GigCardState extends State<_GigCard> {
+  bool _isBooking = false;
+
+  Future<void> _handleBookPressed() async {
+    final request = widget.request;
+
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('Confirm booking'),
+        content: Text(
+          'Book this move from ${request.origin} to ${request.destination}?',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(false),
+            child: const Text('Cancel'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.of(dialogContext).pop(true),
+            child: const Text('Confirm'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed != true || !mounted) return;
+
+    setState(() => _isBooking = true);
+
+    final result = await widget.requestsService.bookRequest(request.id);
+
+    if (!mounted) return;
+    setState(() => _isBooking = false);
+
+    final messenger = ScaffoldMessenger.of(context);
+    switch (result.outcome) {
+      case BookingOutcome.success:
+        messenger.showSnackBar(
+          const SnackBar(content: Text('Gig booked!')),
+        );
+      case BookingOutcome.alreadyBooked:
+        messenger.showSnackBar(
+          const SnackBar(
+            content: Text(
+              'Sorry, this gig was just booked by someone else.',
+            ),
+          ),
+        );
+        widget.requestsService.fetchOpenRequests();
+      case BookingOutcome.failure:
+        messenger.showSnackBar(
+          const SnackBar(content: Text('Could not book this gig. Please try again.')),
+        );
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
-    final notes = request.notes;
+    final notes = widget.request.notes;
 
     return Card(
       margin: const EdgeInsets.only(bottom: 12),
@@ -84,7 +149,7 @@ class _GigCard extends StatelessWidget {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(
-              '${request.origin} → ${request.destination}',
+              '${widget.request.origin} → ${widget.request.destination}',
               style: Theme.of(context).textTheme.titleMedium,
             ),
             const SizedBox(height: 8),
@@ -92,13 +157,27 @@ class _GigCard extends StatelessWidget {
               children: [
                 const Icon(Icons.calendar_today, size: 16),
                 const SizedBox(width: 6),
-                Text(_formatDate(request.moveDate)),
+                Text(_formatDate(widget.request.moveDate)),
               ],
             ),
             if (notes != null && notes.isNotEmpty) ...[
               const SizedBox(height: 8),
               Text(notes, style: Theme.of(context).textTheme.bodyMedium),
             ],
+            const SizedBox(height: 12),
+            Align(
+              alignment: Alignment.centerRight,
+              child: FilledButton(
+                onPressed: _isBooking ? null : _handleBookPressed,
+                child: _isBooking
+                    ? const SizedBox(
+                        width: 16,
+                        height: 16,
+                        child: CircularProgressIndicator(strokeWidth: 2),
+                      )
+                    : const Text('Book'),
+              ),
+            ),
           ],
         ),
       ),

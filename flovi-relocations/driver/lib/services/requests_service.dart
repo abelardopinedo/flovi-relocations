@@ -2,10 +2,28 @@ import 'package:flutter/foundation.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../models/relocation_request.dart';
+import 'auth_service.dart';
 import 'supabase_client.dart';
 
 const _table = 'relocation_requests';
 const _openStatus = 'open';
+const _bookedStatus = 'booked';
+
+enum BookingOutcome { success, alreadyBooked, failure }
+
+/// Result of a [RequestsService.bookRequest] attempt.
+class BookingResult {
+  const BookingResult._(this.outcome, [this.error]);
+
+  const BookingResult.success() : this._(BookingOutcome.success);
+
+  const BookingResult.alreadyBooked() : this._(BookingOutcome.alreadyBooked);
+
+  const BookingResult.failure(Object error) : this._(BookingOutcome.failure, error);
+
+  final BookingOutcome outcome;
+  final Object? error;
+}
 
 /// Keeps an up-to-date list of open (unbooked) relocation requests, backed
 /// by an initial fetch plus a Realtime subscription. Notifies listeners
@@ -52,6 +70,39 @@ class RequestsService extends ChangeNotifier {
     } finally {
       isLoading = false;
       notifyListeners();
+    }
+  }
+
+  /// Books [requestId] for the current driver, but only if it is still
+  /// 'open' at the time the update reaches the database. The `.eq('status',
+  /// 'open')` condition makes this atomic: if another driver booked it a
+  /// moment earlier, this update matches 0 rows instead of overwriting theirs.
+  Future<BookingResult> bookRequest(String requestId) async {
+    final driverId = AuthService.instance.currentUser?.id;
+    if (driverId == null) {
+      return const BookingResult.failure('Not signed in');
+    }
+
+    try {
+      final updated = await supabase
+          .from(_table)
+          .update({
+            'driver_id': driverId,
+            'status': _bookedStatus,
+          })
+          .eq('id', requestId)
+          .eq('status', _openStatus)
+          .select();
+
+      if (updated.isEmpty) {
+        return const BookingResult.alreadyBooked();
+      }
+
+      _openRequestsById.remove(requestId);
+      notifyListeners();
+      return const BookingResult.success();
+    } catch (e) {
+      return BookingResult.failure(e);
     }
   }
 
